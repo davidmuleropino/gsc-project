@@ -1,6 +1,7 @@
 // frontend/src/GSCDataFetcher.js
 import React, { useState } from 'react';
 import axios from 'axios';
+import Papa from 'papaparse';
 
 function GSCDataFetcher({ isAuthenticated }) {
     const [region, setRegion] = useState('');
@@ -26,6 +27,18 @@ function GSCDataFetcher({ isAuthenticated }) {
         }
     };
 
+    const handleExportCSV = () => {
+        const csv = Papa.unparse(results);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `GSC_Results_${region}_${startDate}_${endDate}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div>
             <h2>Google Search Console Data Fetcher</h2>
@@ -36,7 +49,7 @@ function GSCDataFetcher({ isAuthenticated }) {
                         type="text" 
                         value={region} 
                         onChange={(e) => setRegion(e.target.value)} 
-                        placeholder="e.g., gx for global" // Add placeholder as a hint
+                        placeholder="e.g., gx" 
                     />
                 </label>
                 <label>
@@ -51,6 +64,7 @@ function GSCDataFetcher({ isAuthenticated }) {
             </form>
             <div>
                 <h2>Results</h2>
+                <button onClick={handleExportCSV} disabled={results.length === 0}>Export to CSV</button>
                 <table>
                     <thead>
                         <tr>
