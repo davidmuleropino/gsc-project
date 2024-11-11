@@ -123,9 +123,17 @@ app.post('/api/fetchData', isAuthenticated, async (req, res) => {
     }
 });
 
-// Route to get all pages by region
+// Route to get all pages by region or just the region keys
 app.get('/api/getPages', isAuthenticated, (req, res) => {
-    res.json(pagesByRegion);
+    const { keysOnly } = req.query;
+
+    if (keysOnly === 'true') {
+        // Return only the region keys as an array
+        res.json(Object.keys(pagesByRegion));
+    } else {
+        // Return the full pagesByRegion data
+        res.json(pagesByRegion);
+    }
 });
 
 // Route to update a specific page URL by region and index

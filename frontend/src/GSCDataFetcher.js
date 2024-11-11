@@ -1,13 +1,29 @@
 // frontend/src/GSCDataFetcher.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Papa from 'papaparse';
 
 function GSCDataFetcher({ isAuthenticated }) {
-    const [region, setRegion] = useState('');
+    const [regions, setRegions] = useState([]); // Store available regions
+    const [selectedRegions, setSelectedRegions] = useState([]);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [results, setResults] = useState([]);
+
+    // Fetch available region keys from the backend with credentials
+    useEffect(() => {
+        axios.get('http://localhost:3001/api/getPages?keysOnly=true', { withCredentials: true })
+            .then(response => setRegions(response.data))
+            .catch(error => console.error("Error fetching regions:", error));
+    }, []);
+
+    const handleRegionChange = (region) => {
+        setSelectedRegions(prevSelected =>
+            prevSelected.includes(region)
+                ? prevSelected.filter(r => r !== region) // Uncheck
+                : [...prevSelected, region] // Check
+        );
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -15,13 +31,25 @@ function GSCDataFetcher({ isAuthenticated }) {
             alert("Please log in first.");
             return;
         }
+
+        if (selectedRegions.length === 0) {
+            alert("Please select at least one region.");
+            return;
+        }
+
         try {
-            const response = await axios.post(
-                'http://localhost:3001/api/fetchData',
-                { region, startDate, endDate },
-                { withCredentials: true }
-            );
-            setResults(response.data);
+            let allResults = [];
+
+            for (const region of selectedRegions) {
+                const response = await axios.post(
+                    'http://localhost:3001/api/fetchData',
+                    { region, startDate, endDate },
+                    { withCredentials: true }
+                );
+                allResults = [...allResults, ...response.data.map(result => ({ ...result, region }))]; // Add region info to each result
+            }
+
+            setResults(allResults);
         } catch (error) {
             console.error("Error fetching data:", error);
         }
@@ -33,7 +61,7 @@ function GSCDataFetcher({ isAuthenticated }) {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `GSC_Results_${region}_${startDate}_${endDate}.csv`);
+        link.setAttribute('download', `GSC_Results_${startDate}_${endDate}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -43,15 +71,19 @@ function GSCDataFetcher({ isAuthenticated }) {
         <div>
             <h2>Google Search Console Data Fetcher</h2>
             <form onSubmit={handleSubmit}>
-                <label>
-                    Region:
-                    <input 
-                        type="text" 
-                        value={region} 
-                        onChange={(e) => setRegion(e.target.value)} 
-                        placeholder="e.g., gx" 
-                    />
-                </label>
+                <div>
+                    <h3>Regions</h3>
+                    {regions.map((region) => (
+                        <label key={region} style={{ display: 'block' }}>
+                            <input
+                                type="checkbox"
+                                checked={selectedRegions.includes(region)}
+                                onChange={() => handleRegionChange(region)}
+                            />
+                            {region.toUpperCase()}
+                        </label>
+                    ))}
+                </div>
                 <label>
                     Start Date:
                     <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -75,6 +107,7 @@ function GSCDataFetcher({ isAuthenticated }) {
                             <th>Impressions</th>
                             <th>CTR</th>
                             <th>Position</th>
+                            <th>Region</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -87,6 +120,7 @@ function GSCDataFetcher({ isAuthenticated }) {
                                 <td>{result.impressions}</td>
                                 <td>{result.ctr}</td>
                                 <td>{result.position}</td>
+                                <td>{result.region}</td>
                             </tr>
                         ))}
                     </tbody>
