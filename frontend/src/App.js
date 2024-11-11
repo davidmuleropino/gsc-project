@@ -30,9 +30,9 @@ function App() {
                 <button onClick={handleLogin}>Login with Google</button>
             ) : (
                 <>
-                    <GSCDataFetcher isAuthenticated={isAuthenticated} />
-                    <hr />
                     <UpdatePagesForm />
+                    <hr />
+                    <GSCDataFetcher isAuthenticated={isAuthenticated} />
                 </>
             )}
         </div>

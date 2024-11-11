@@ -7,6 +7,7 @@ const { google } = require('googleapis');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 require('dotenv').config();
+const pagesByRegion = require('./pageData'); // Import pages by region
 
 const app = express();
 app.use(bodyParser.json());
@@ -44,17 +45,12 @@ app.get('/auth/google', passport.authenticate('google', {
 
 // Route to handle the OAuth2 callback
 app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => {
-    // Redirect to frontend after successful login
     res.redirect('http://localhost:3000');
 });
 
 // Route to check authentication status
 app.get('/auth/google/status', (req, res) => {
-    if (req.isAuthenticated()) {
-        res.json({ isAuthenticated: true });
-    } else {
-        res.json({ isAuthenticated: false });
-    }
+    res.json({ isAuthenticated: req.isAuthenticated() });
 });
 
 // Middleware to check if user is authenticated
@@ -65,9 +61,7 @@ function isAuthenticated(req, res, next) {
     res.status(401).json({ message: 'Unauthorized' });
 }
 
-// Example API route for data fetching (requires authentication)
-// Import the pagesByRegion data
-const pagesByRegion = require('./pageData');
+// Route to fetch data from Google Search Console (requires authentication)
 app.post('/api/fetchData', isAuthenticated, async (req, res) => {
     const { region, startDate, endDate } = req.body;
     const siteURL = region === "gx" ? "www.casinos.com" : `www.casinos.com/${region}`;
@@ -78,7 +72,7 @@ app.post('/api/fetchData', isAuthenticated, async (req, res) => {
     let results = [];
 
     try {
-        const pages = pagesByRegion[region] || []; // Default to an empty array if the region is not defined
+        const pages = pagesByRegion[region] || []; // Default to an empty array if region not found
         if (pages.length === 0) {
             console.log(`No pages defined for region: ${region}`);
             return res.status(404).json({ message: `No pages found for region: ${region}` });
@@ -129,6 +123,37 @@ app.post('/api/fetchData', isAuthenticated, async (req, res) => {
     }
 });
 
+// Route to get all pages by region
+app.get('/api/getPages', isAuthenticated, (req, res) => {
+    res.json(pagesByRegion);
+});
+
+// Route to update a specific page URL by region and index
+app.post('/api/updatePage', isAuthenticated, (req, res) => {
+    const { region, index, url } = req.body;
+
+    // Debug logging
+    console.log(`Updating page for region: ${region}, index: ${index}, new URL: ${url}`);
+    console.log('Current pages for region:', pagesByRegion[region]);
+
+    // Check if the region and index are valid
+    if (!pagesByRegion[region]) {
+        console.log("Region not found:", region);
+        return res.status(400).json({ message: "Invalid region" });
+    }
+    
+    if (pagesByRegion[region][index] === undefined) {
+        console.log("Invalid page index:", index);
+        return res.status(400).json({ message: "Invalid page index" });
+    }
+
+    // Update the URL
+    pagesByRegion[region][index] = url;
+    res.json({ message: "Page updated successfully", updatedPage: url });
+});
+
+
+// Route to update multiple pages at once for a given region
 app.post('/api/updatePages', isAuthenticated, (req, res) => {
     const { region, pages } = req.body;
     
@@ -138,7 +163,6 @@ app.post('/api/updatePages', isAuthenticated, (req, res) => {
 
     // Update pages for the specified region
     pagesByRegion[region] = pages;
-    
     res.json({ message: "Pages updated successfully", updatedPages: pagesByRegion[region] });
 });
 
